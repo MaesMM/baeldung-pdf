@@ -1,7 +1,7 @@
-import os, csv, re, sys, urllib.request
+import os, csv, re, sys
 from abc import ABC, abstractmethod
 from bs4 import BeautifulSoup, element as bs4Element
-
+from urllib import request, parse, error
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class Article:
@@ -12,7 +12,7 @@ class Article:
         self.html = self.get_html()
 
     def get_html(self):
-        opener = urllib.request.URLopener()
+        opener = request.URLopener() # Deprecated, use urllib.request.urlopen like in WikipediaContentHandler
         opener.addheader('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0')
         html_path, headers = opener.retrieve(self.url, dir_path + "/temp.html")
         return html_path
@@ -36,13 +36,24 @@ class BaeldungContentHandler(ArticleContentHandler):
             
         soup = BeautifulSoup(article.html_content, 'html.parser')
         report_container = soup.find('section', {'itemprop': 'articleBody'})
-        print(report_container.prettify())
+        parsed_url = parse.urlparse(article.url)
+        title = parsed_url.path[1:].replace("/",".")
+        with open(title + ".pdf", "w") as file:
+            file.write(report_container.prettify())
 
 
 class WikipediaContentHandler(ArticleContentHandler):
     def get_core_content(self, article):
-        """BAR"""
-        print("Wikipedia article")
+        parsed_url = parse.urlparse(article.url)
+        title = parsed_url.path.split("/")[-1].split("#")[0]
+        download_link = "https://en.wikipedia.org/api/rest_v1/page/pdf/" + title
+        try:
+            with request.urlopen(download_link) as response:
+                pdf_content = response.read()
+                with open(title + ".pdf", "wb") as file:
+                    file.write(pdf_content)
+        except error.URLerror as e:
+            print(f"Failed to open the download link: {pdf_url}, error: {e}")
 
 def main():
     if len(sys.argv) < 2:
